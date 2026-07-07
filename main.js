@@ -47,6 +47,14 @@ const clock = new THREE.Clock();
 // Simplest correct fix for this viewer: don't render it at all.
 const HIDDEN_MATERIAL_NAMES = ['lensMat 1'];
 
+// Some materials (e.g. "metal") ship with no base texture and rely on real
+// PBR reflections to read as their intended look — since this viewer is
+// fully unlit by design, those come out as plain white instead. Give them a
+// flat tint here so they read as the intended material at a glance.
+const MATERIAL_COLOR_OVERRIDES = {
+  metal: 0x9a9a9e,
+};
+
 // Render the avatar unlit: swap every material for a MeshBasicMaterial that
 // keeps the original texture/color/alpha but does zero light computation, so
 // what you see is exactly the source texture's albedo (no PBR roughness/
@@ -65,9 +73,13 @@ function makeUnlit(root) {
         return hidden;
       }
 
+      const colorOverride = MATERIAL_COLOR_OVERRIDES[mat.name];
+
       const basic = new THREE.MeshBasicMaterial({
         map: mat.map || null,
-        color: mat.color ? mat.color.clone() : new THREE.Color(0xffffff),
+        color: colorOverride !== undefined
+          ? new THREE.Color(colorOverride)
+          : (mat.color ? mat.color.clone() : new THREE.Color(0xffffff)),
         transparent: mat.transparent,
         opacity: mat.opacity,
         alphaTest: mat.alphaTest,
