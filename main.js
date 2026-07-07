@@ -325,6 +325,63 @@ function setupClothingToggle(model) {
   applyClothingState(toggleEl.checked);
 }
 
+// Clip names come straight out of VRCFury's baked animator ("go_asl_is_your_
+// cat_friendly", "go_additive_reference_pose") rather than anything a viewer
+// should show verbatim — turn the snake_case/prefix mess into a readable label.
+function formatPoseName(rawName) {
+  return rawName
+    .replace(/^go_/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+let currentPoseAction = null;
+
+const NO_POSE_VALUE = '-1';
+
+function setupPoseSelector(mixer, clips) {
+  const poseRow = document.getElementById('pose-row');
+  const selectEl = document.getElementById('pose-select');
+  if (!poseRow || !selectEl || clips.length === 0) return;
+
+  const noneOption = document.createElement('option');
+  noneOption.value = NO_POSE_VALUE;
+  noneOption.textContent = 'None';
+  selectEl.appendChild(noneOption);
+
+  clips.forEach((clip, i) => {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = formatPoseName(clip.name);
+    selectEl.appendChild(option);
+  });
+
+  function playPose(index) {
+    if (index < 0) {
+      if (currentPoseAction) {
+        currentPoseAction.fadeOut(0.3);
+        currentPoseAction = null;
+      }
+      return;
+    }
+
+    const nextAction = mixer.clipAction(clips[index]);
+    nextAction.reset();
+    nextAction.setLoop(THREE.LoopRepeat);
+    nextAction.play();
+
+    if (currentPoseAction && currentPoseAction !== nextAction) {
+      currentPoseAction.crossFadeTo(nextAction, 0.3, false);
+    }
+    currentPoseAction = nextAction;
+  }
+
+  selectEl.value = NO_POSE_VALUE;
+  selectEl.addEventListener('change', () => playPose(Number(selectEl.value)));
+
+  poseRow.classList.remove('hidden');
+}
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://unpkg.com/three@0.165.0/examples/jsm/libs/draco/');
 
@@ -360,7 +417,7 @@ loader.load(
 
     if (gltf.animations && gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
-      mixer.clipAction(gltf.animations[0]).play();
+      setupPoseSelector(mixer, gltf.animations);
     }
 
     loadingEl.style.display = 'none';

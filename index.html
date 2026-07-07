@@ -103,6 +103,24 @@
     .toggle-row input:checked + .toggle-switch::after {
       left: 23px;
     }
+    #pose-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    #pose-select {
+      background: #2a2a2e;
+      color: #ddd;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    #pose-row.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -113,6 +131,10 @@
       <span class="toggle-switch"></span>
       Clothing
     </label>
+    <div id="pose-row" class="hidden">
+      <label for="pose-select">Pose</label>
+      <select id="pose-select"></select>
+    </div>
   </div>
   <div id="hud">
     <span class="hud-item">
