@@ -17,10 +17,16 @@ real mesh/skeleton tree, so the full ancestor path is what disambiguates.
 Usage:
     python3 tools/extract_animations.py novabeast.glb animations.json --keep "Idle" "Sitting"
     python3 tools/extract_animations.py novabeast.glb animations.json --keep-file poses.txt
+
+    # Add a pose from a different glb without losing what's already in
+    # animations.json (a clip with the same name overwrites the old copy of
+    # that clip; anything else in the file is left untouched):
+    python3 tools/extract_animations.py new_export.glb animations.json --keep "Wave" --append
 """
 
 import argparse
 import json
+import os
 import sys
 
 from glb_common import read_glb, read_accessor_floats, build_node_paths
@@ -70,6 +76,13 @@ def main():
     parser.add_argument("output", help="Destination .json file")
     parser.add_argument("--keep", nargs="*", default=[], help="Animation names to extract")
     parser.add_argument("--keep-file", help="Text file with one animation name per line")
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Merge into an existing output file instead of overwriting it "
+        "(a clip with the same name replaces the old one; everything else "
+        "already in the file is kept)",
+    )
     args = parser.parse_args()
 
     keep_names = set(args.keep)
@@ -83,11 +96,29 @@ def main():
     gltf, bin_data = read_glb(args.input)
     extracted = extract_animations(gltf, bin_data, keep_names)
 
+    existing_by_name = {}
+    if args.append and os.path.exists(args.output):
+        with open(args.output, "r", encoding="utf-8") as f:
+            existing_data = json.load(f)
+        existing_by_name = {a["name"]: a for a in existing_data.get("animations", [])}
+        overwritten = existing_by_name.keys() & {a["name"] for a in extracted}
+        if overwritten:
+            print(f"Replacing existing clip(s): {sorted(overwritten)}", file=sys.stderr)
+
+    for anim in extracted:
+        existing_by_name[anim["name"]] = anim
+
+    combined = list(existing_by_name.values())
+
     with open(args.output, "w", encoding="utf-8") as f:
-        json.dump({"animations": extracted}, f)
+        json.dump({"animations": combined}, f)
 
     total_channels = sum(len(a["channels"]) for a in extracted)
-    print(f"Extracted {len(extracted)}/{len(keep_names)} requested animations ({total_channels} channels total).")
+    print(
+        f"Extracted {len(extracted)}/{len(keep_names)} requested animations "
+        f"({total_channels} channels total). {args.output} now has "
+        f"{len(combined)} animation(s) total."
+    )
 
 
 if __name__ == "__main__":

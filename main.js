@@ -340,9 +340,48 @@ let currentPoseAction = null;
 
 const NO_POSE_VALUE = '-1';
 
+// Dev-only curation mode (?curate=1): instead of trawling a static list of
+// ~700 clips with no idea what most of them look like, play each one in the
+// actual viewer and click "Keep this pose" to build an in-memory shortlist,
+// exported at the end as the newline-separated list extract_animations.py's
+// --keep-file expects. Nothing here touches the glb; it's purely a UI aid.
+const CURATE_MODE = new URLSearchParams(location.search).get('curate') === '1';
+const keptPoseNames = new Set();
+
+function renderKeptList() {
+  const countEl = document.getElementById('kept-count');
+  const listEl = document.getElementById('kept-list');
+  const outputEl = document.getElementById('kept-output');
+  if (!countEl || !listEl || !outputEl) return;
+
+  countEl.textContent = String(keptPoseNames.size);
+  outputEl.value = [...keptPoseNames].join('\n');
+
+  listEl.innerHTML = '';
+  keptPoseNames.forEach((name) => {
+    const row = document.createElement('div');
+    const label = document.createElement('span');
+    label.textContent = name;
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => {
+      keptPoseNames.delete(name);
+      renderKeptList();
+      syncKeepButton();
+    });
+    row.appendChild(label);
+    row.appendChild(removeBtn);
+    listEl.appendChild(row);
+  });
+}
+
+let syncKeepButton = () => {};
+
 function setupPoseSelector(mixer, clips) {
   const poseRow = document.getElementById('pose-row');
   const selectEl = document.getElementById('pose-select');
+  const keepBtn = document.getElementById('keep-pose-btn');
+  const curatePanel = document.getElementById('curate-panel');
   if (!poseRow || !selectEl || clips.length === 0) return;
 
   const noneOption = document.createElement('option');
@@ -378,9 +417,50 @@ function setupPoseSelector(mixer, clips) {
   }
 
   selectEl.value = NO_POSE_VALUE;
-  selectEl.addEventListener('change', () => playPose(Number(selectEl.value)));
+  selectEl.addEventListener('change', () => {
+    playPose(Number(selectEl.value));
+    syncKeepButton();
+  });
 
   poseRow.classList.remove('hidden');
+
+  if (CURATE_MODE && keepBtn && curatePanel) {
+    keepBtn.classList.remove('hidden');
+    curatePanel.classList.remove('hidden');
+
+    syncKeepButton = () => {
+      const index = Number(selectEl.value);
+      if (index < 0) {
+        keepBtn.classList.add('hidden');
+        return;
+      }
+      keepBtn.classList.remove('hidden');
+      const clipName = clips[index].name;
+      keepBtn.classList.toggle('kept', keptPoseNames.has(clipName));
+      keepBtn.textContent = keptPoseNames.has(clipName) ? 'Kept ✓' : 'Keep this pose';
+    };
+
+    keepBtn.addEventListener('click', () => {
+      const index = Number(selectEl.value);
+      if (index < 0) return;
+      const clipName = clips[index].name;
+      if (keptPoseNames.has(clipName)) {
+        keptPoseNames.delete(clipName);
+      } else {
+        keptPoseNames.add(clipName);
+      }
+      syncKeepButton();
+      renderKeptList();
+    });
+
+    syncKeepButton();
+    renderKeptList();
+
+    document.getElementById('copy-kept-btn')?.addEventListener('click', async () => {
+      const outputEl = document.getElementById('kept-output');
+      await navigator.clipboard.writeText(outputEl.value);
+    });
+  }
 }
 
 const dracoLoader = new DRACOLoader();
