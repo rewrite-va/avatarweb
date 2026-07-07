@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const MODEL_URL = './assets/novabeast.glb';
 
@@ -28,11 +27,60 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // and ACES/Reinhard curves would otherwise shift/compress those values.
 renderer.toneMapping = THREE.NoToneMapping;
 
-// Studio-style environment map used only for real-reflection materials (like
-// "metal" below) so they can pick up believable shiny reflections without
-// switching the whole avatar out of unlit rendering.
+// Environment for real-reflection materials (like "metal" below): a flat
+// grey box only ever reflects grey, no matter the roughness, since there's
+// no color information to bounce back — real metal picks up color from a
+// varied surrounding (sky, floor, nearby colored objects). This builds a
+// small stylized "room" with a cool blue sky-ish ceiling, a warm floor, and
+// a couple of colored accent panels alongside bright highlight strips, so
+// the metal's reflection actually carries some blue/red/warm variation.
+function buildMetalEnvironment() {
+  const envScene = new THREE.Scene();
+
+  const room = new THREE.Mesh(
+    new THREE.BoxGeometry(12, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x3a3a40, side: THREE.BackSide })
+  );
+  envScene.add(room);
+
+  const ceiling = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x3d6fb8 })
+  );
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = 5.9;
+  envScene.add(ceiling);
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xb8834a })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -5.9;
+  envScene.add(floor);
+
+  const stripGeometry = new THREE.PlaneGeometry(0.6, 8);
+  const accentGeometry = new THREE.PlaneGeometry(3, 4);
+
+  const panels = [
+    { geo: stripGeometry, color: 0xffffff, x: -3, y: 0, z: -5.9, ry: 0 },
+    { geo: stripGeometry, color: 0xffffff, x: 3, y: 0, z: -5.9, ry: 0 },
+    { geo: accentGeometry, color: 0xe0483a, x: -5.9, y: 1, z: -1, ry: Math.PI / 2 },
+    { geo: accentGeometry, color: 0x4ab0c8, x: 5.9, y: 1, z: 2, ry: -Math.PI / 2 },
+  ];
+
+  panels.forEach(({ geo, color, x, y, z, ry }) => {
+    const panel = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color }));
+    panel.position.set(x, y, z);
+    panel.rotation.y = ry;
+    envScene.add(panel);
+  });
+
+  return envScene;
+}
+
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
-const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.02).texture;
+const envTexture = pmremGenerator.fromScene(buildMetalEnvironment(), 0.02).texture;
 
 // A single, fairly bright directional light so the reflective material has
 // something to catch a visible highlight from, without lighting the rest of
@@ -68,6 +116,13 @@ const HIDDEN_MATERIAL_NAMES = ['lensMat 1'];
 // so it actually looks like shiny metal instead of grey plastic.
 const REAL_MATERIAL_NAMES = ['metal'];
 
+// Some flat-color materials ship with baseColorFactor set to pure black (no
+// texture at all), relying on lilToon shading effects in Unity that don't
+// carry over here — "leather" is meant to look dark brown, not pure black.
+const MATERIAL_COLOR_OVERRIDES = {
+  leather: 0x110b09,
+};
+
 // Render the avatar unlit: swap every material for a MeshBasicMaterial that
 // keeps the original texture/color/alpha but does zero light computation, so
 // what you see is exactly the source texture's albedo (no PBR roughness/
@@ -88,20 +143,24 @@ function makeUnlit(root) {
 
       if (REAL_MATERIAL_NAMES.includes(mat.name)) {
         const metal = new THREE.MeshStandardMaterial({
-          color: 0xb8b8bc,
+          color: 0xffffff,
           metalness: 1,
-          roughness: 0.3,
+          roughness: 0.25,
           envMap: envTexture,
-          envMapIntensity: 1.4,
+          envMapIntensity: 1.0,
           name: mat.name,
         });
         mat.dispose();
         return metal;
       }
 
+      const colorOverride = MATERIAL_COLOR_OVERRIDES[mat.name];
+
       const basic = new THREE.MeshBasicMaterial({
         map: mat.map || null,
-        color: mat.color ? mat.color.clone() : new THREE.Color(0xffffff),
+        color: colorOverride !== undefined
+          ? new THREE.Color(colorOverride)
+          : (mat.color ? mat.color.clone() : new THREE.Color(0xffffff)),
         transparent: mat.transparent,
         opacity: mat.opacity,
         alphaTest: mat.alphaTest,
@@ -221,6 +280,50 @@ function addOutlines(root, avatarHeight) {
   return outlineMeshes;
 }
 
+// The shirt is a separate mesh node (not part of Body) and hiding the chest
+// fluff underneath it is a blend shape on Body, not a visibility toggle —
+// same mechanism Unity uses (hideChestfluff dialed to 100% when the shirt is
+// worn). The glb ships with the shirt hidden and hideChestfluff at its
+// default ~11% (fluff partly tucked in even bare-chested), so "off" restores
+// exactly that baked default rather than assuming a hard 0.
+const CLOTHING_ON_CHEST_FLUFF_WEIGHT = 1;
+
+function setupClothingToggle(model) {
+  const shirt = model.getObjectByName('shirt');
+  const body = model.getObjectByName('Body');
+  const toggleEl = document.getElementById('clothing-toggle');
+  if (!shirt || !body || !toggleEl) return;
+
+  // "Body" is a Group wrapping one SkinnedMesh per material (Body_1..Body_6,
+  // from the multi-material export) — each is a separate object with its own
+  // morphTargetInfluences array, even though they all represent the same
+  // underlying vertex data. Setting the influence on the Group itself is a
+  // no-op; it has to be set on every child mesh that has the target.
+  const bodyParts = [];
+  body.traverse((o) => {
+    if (o.isMesh && o.morphTargetDictionary?.hideChestfluff !== undefined) {
+      bodyParts.push(o);
+    }
+  });
+
+  const chestFluffIndex = bodyParts[0]?.morphTargetDictionary.hideChestfluff;
+  const defaultChestFluffWeight =
+    chestFluffIndex !== undefined ? bodyParts[0].morphTargetInfluences[chestFluffIndex] : undefined;
+
+  function applyClothingState(showClothing) {
+    shirt.visible = showClothing;
+
+    if (chestFluffIndex !== undefined) {
+      const weight = showClothing ? CLOTHING_ON_CHEST_FLUFF_WEIGHT : defaultChestFluffWeight;
+      bodyParts.forEach((part) => {
+        part.morphTargetInfluences[chestFluffIndex] = weight;
+      });
+    }
+  }
+
+  toggleEl.addEventListener('change', () => applyClothingState(toggleEl.checked));
+  applyClothingState(toggleEl.checked);
+}
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://unpkg.com/three@0.165.0/examples/jsm/libs/draco/');
@@ -247,6 +350,7 @@ loader.load(
 
     const height = size.y || 1.8;
     addOutlines(model, height);
+    setupClothingToggle(model);
 
     scene.add(model);
 
