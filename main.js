@@ -330,9 +330,10 @@ function setupClothingToggle(model) {
 // should show verbatim — turn the snake_case/prefix mess into a readable label.
 function formatPoseName(rawName) {
   return rawName
-    .replace(/^go_/, '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  // return rawName
+  //   .replace(/^go_/, '')
+  //   .replace(/_/g, ' ')
+  //   .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 let currentPoseAction = null;
