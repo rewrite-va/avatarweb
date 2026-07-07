@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const MODEL_URL = './assets/novabeast.glb';
 
@@ -27,6 +28,19 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 // and ACES/Reinhard curves would otherwise shift/compress those values.
 renderer.toneMapping = THREE.NoToneMapping;
 
+// Studio-style environment map used only for real-reflection materials (like
+// "metal" below) so they can pick up believable shiny reflections without
+// switching the whole avatar out of unlit rendering.
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.02).texture;
+
+// A single, fairly bright directional light so the reflective material has
+// something to catch a visible highlight from, without lighting the rest of
+// the (unlit) avatar since only the metal material below receives lights.
+const metalHighlight = new THREE.DirectionalLight(0xffffff, 2.2);
+metalHighlight.position.set(2, 4, 3);
+scene.add(metalHighlight);
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
@@ -47,13 +61,12 @@ const clock = new THREE.Clock();
 // Simplest correct fix for this viewer: don't render it at all.
 const HIDDEN_MATERIAL_NAMES = ['lensMat 1'];
 
-// Some materials (e.g. "metal") ship with no base texture and rely on real
-// PBR reflections to read as their intended look — since this viewer is
-// fully unlit by design, those come out as plain white instead. Give them a
-// flat tint here so they read as the intended material at a glance.
-const MATERIAL_COLOR_OVERRIDES = {
-  metal: 0x9a9a9e,
-};
+// "metal" ships with no base texture and relies on real PBR reflections to
+// read as metal — since the rest of the avatar is unlit by design, it would
+// otherwise render as plain white. Rather than flatly tinting it, give it a
+// real lit/reflective material (see metalHighlight light + envTexture above)
+// so it actually looks like shiny metal instead of grey plastic.
+const REAL_MATERIAL_NAMES = ['metal'];
 
 // Render the avatar unlit: swap every material for a MeshBasicMaterial that
 // keeps the original texture/color/alpha but does zero light computation, so
@@ -73,13 +86,22 @@ function makeUnlit(root) {
         return hidden;
       }
 
-      const colorOverride = MATERIAL_COLOR_OVERRIDES[mat.name];
+      if (REAL_MATERIAL_NAMES.includes(mat.name)) {
+        const metal = new THREE.MeshStandardMaterial({
+          color: 0xb8b8bc,
+          metalness: 1,
+          roughness: 0.3,
+          envMap: envTexture,
+          envMapIntensity: 1.4,
+          name: mat.name,
+        });
+        mat.dispose();
+        return metal;
+      }
 
       const basic = new THREE.MeshBasicMaterial({
         map: mat.map || null,
-        color: colorOverride !== undefined
-          ? new THREE.Color(colorOverride)
-          : (mat.color ? mat.color.clone() : new THREE.Color(0xffffff)),
+        color: mat.color ? mat.color.clone() : new THREE.Color(0xffffff),
         transparent: mat.transparent,
         opacity: mat.opacity,
         alphaTest: mat.alphaTest,
