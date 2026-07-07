@@ -131,11 +131,17 @@
       font-family: inherit;
       cursor: pointer;
     }
-    #keep-pose-btn.kept {
+    #keep-pose-btn {
       background: #2f6b40;
       border-color: #3a9a5c;
     }
-    #keep-pose-btn.hidden, #curate-panel.hidden {
+    #keep-pose-btn:hover {
+      background: #368049;
+    }
+    #discard-pose-btn:hover {
+      background: #3a2e2e;
+    }
+    #keep-pose-btn.hidden, #discard-pose-btn.hidden, #curate-panel.hidden {
       display: none;
     }
     #curate-panel {
@@ -195,7 +201,8 @@
     <div id="pose-row" class="hidden">
       <label for="pose-select">Pose</label>
       <select id="pose-select"></select>
-      <button id="keep-pose-btn" class="hidden">Keep this pose</button>
+      <button id="keep-pose-btn" class="hidden">Keep &amp; next</button>
+      <button id="discard-pose-btn" class="hidden">Discard &amp; next</button>
     </div>
     <div id="curate-panel" class="hidden">
       <h3>Kept poses (<span id="kept-count">0</span>)</h3>

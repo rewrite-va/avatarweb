@@ -375,12 +375,11 @@ function renderKeptList() {
   });
 }
 
-let syncKeepButton = () => {};
-
 function setupPoseSelector(mixer, clips) {
   const poseRow = document.getElementById('pose-row');
   const selectEl = document.getElementById('pose-select');
   const keepBtn = document.getElementById('keep-pose-btn');
+  const discardBtn = document.getElementById('discard-pose-btn');
   const curatePanel = document.getElementById('curate-panel');
   if (!poseRow || !selectEl || clips.length === 0) return;
 
@@ -417,49 +416,53 @@ function setupPoseSelector(mixer, clips) {
   }
 
   selectEl.value = NO_POSE_VALUE;
-  selectEl.addEventListener('change', () => {
-    playPose(Number(selectEl.value));
-    syncKeepButton();
-  });
+  selectEl.addEventListener('change', () => playPose(Number(selectEl.value)));
 
   poseRow.classList.remove('hidden');
 
-  if (CURATE_MODE && keepBtn && curatePanel) {
+  if (CURATE_MODE && keepBtn && discardBtn && curatePanel) {
     keepBtn.classList.remove('hidden');
+    discardBtn.classList.remove('hidden');
     curatePanel.classList.remove('hidden');
 
-    syncKeepButton = () => {
-      const index = Number(selectEl.value);
-      if (index < 0) {
-        keepBtn.classList.add('hidden');
+    // Review flow: both buttons advance to the next clip in the list so you
+    // can plow through ~700 entries quickly without touching the dropdown —
+    // Keep also records the clip you were just looking at before moving on,
+    // Discard just moves on.
+    function goToNext() {
+      const current = Number(selectEl.value);
+      const nextIndex = current < 0 ? 0 : current + 1;
+      if (nextIndex >= clips.length) {
+        selectEl.value = NO_POSE_VALUE;
+        playPose(-1);
         return;
       }
-      keepBtn.classList.remove('hidden');
-      const clipName = clips[index].name;
-      keepBtn.classList.toggle('kept', keptPoseNames.has(clipName));
-      keepBtn.textContent = keptPoseNames.has(clipName) ? 'Kept ✓' : 'Keep this pose';
-    };
+      selectEl.value = String(nextIndex);
+      playPose(nextIndex);
+    }
 
     keepBtn.addEventListener('click', () => {
-      const index = Number(selectEl.value);
-      if (index < 0) return;
-      const clipName = clips[index].name;
-      if (keptPoseNames.has(clipName)) {
-        keptPoseNames.delete(clipName);
-      } else {
-        keptPoseNames.add(clipName);
+      const current = Number(selectEl.value);
+      if (current >= 0) {
+        keptPoseNames.add(clips[current].name);
+        renderKeptList();
       }
-      syncKeepButton();
-      renderKeptList();
+      goToNext();
     });
 
-    syncKeepButton();
+    discardBtn.addEventListener('click', goToNext);
+
     renderKeptList();
 
     document.getElementById('copy-kept-btn')?.addEventListener('click', async () => {
       const outputEl = document.getElementById('kept-output');
       await navigator.clipboard.writeText(outputEl.value);
     });
+
+    // Start the review at the first real clip rather than "None", since the
+    // whole point of curate mode is working through the list.
+    selectEl.value = '0';
+    playPose(0);
   }
 }
 
