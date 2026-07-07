@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
-"""Extract selected animation clips from a .glb into a standalone JSON file.
+"""Extract selected animation clips from a .glb into animations/*.json.
 
 This decouples animation authoring from visual re-exports: export a glb with
-your poses once, extract them here into a small node-name-keyed JSON file,
-then use merge_animations.py to combine that with any later visuals-only
-glb re-export (mesh/material changes) without re-touching the animations.
+your poses once, extract them here (one JSON file per clip, in the given
+output directory), then use merge_animations.py to combine that folder with
+any later visuals-only glb re-export (mesh/material changes) without
+re-touching the animations.
+
+One file per animation, rather than one big combined file, on purpose:
+- Editing/inspecting a single pose in an editor doesn't mean opening a
+  multi-megabyte JSON blob with hundreds of other clips in it.
+- Deleting a pose you don't want anymore is just `rm animations/Name.json`
+  — no JSON surgery required.
+- Adding/updating a pose only ever touches its own file; every other file
+  in the directory is left completely alone.
 
 Channels are stored keyed by the target node's full scene PATH (e.g.
 "Novabeast_lilToon/clothing/shirt") rather than its index, since a separate
@@ -15,21 +24,29 @@ alone aren't reliably unique in these exports: VRCFury adds a parallel
 real mesh/skeleton tree, so the full ancestor path is what disambiguates.
 
 Usage:
-    python3 tools/extract_animations.py novabeast.glb animations.json --keep "Idle" "Sitting"
-    python3 tools/extract_animations.py novabeast.glb animations.json --keep-file poses.txt
+    python3 tools/extract_animations.py novabeast.glb animations/ --keep "Idle" "Sitting"
+    python3 tools/extract_animations.py novabeast.glb animations/ --keep-file poses.txt
 
-    # Add a pose from a different glb without losing what's already in
-    # animations.json (a clip with the same name overwrites the old copy of
-    # that clip; anything else in the file is left untouched):
-    python3 tools/extract_animations.py new_export.glb animations.json --keep "Wave" --append
+    # Re-extracting a name just overwrites that one file; every other pose
+    # already in animations/ is untouched:
+    python3 tools/extract_animations.py new_export.glb animations/ --keep "Wave"
 """
 
 import argparse
 import json
-import os
+import re
 import sys
+from pathlib import Path
 
 from glb_common import read_glb, read_accessor_floats, build_node_paths
+
+
+def sanitize_filename(name):
+    """Turn an animation name into a safe filename: keep alphanumerics,
+    spaces, dashes, underscores and parens (clip names like
+    "go_laydown_relax(ByGireison)" use them); replace anything else
+    (notably "/", which some clip names contain) with "_"."""
+    return re.sub(r'[^A-Za-z0-9 _\-().]', "_", name).strip() or "unnamed"
 
 
 def extract_animations(gltf, bin_data, keep_names):
@@ -73,16 +90,9 @@ def extract_animations(gltf, bin_data, keep_names):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("input", help="Source .glb file")
-    parser.add_argument("output", help="Destination .json file")
+    parser.add_argument("output_dir", help="Directory to write one <name>.json file per animation into")
     parser.add_argument("--keep", nargs="*", default=[], help="Animation names to extract")
     parser.add_argument("--keep-file", help="Text file with one animation name per line")
-    parser.add_argument(
-        "--append",
-        action="store_true",
-        help="Merge into an existing output file instead of overwriting it "
-        "(a clip with the same name replaces the old one; everything else "
-        "already in the file is kept)",
-    )
     args = parser.parse_args()
 
     keep_names = set(args.keep)
@@ -96,28 +106,18 @@ def main():
     gltf, bin_data = read_glb(args.input)
     extracted = extract_animations(gltf, bin_data, keep_names)
 
-    existing_by_name = {}
-    if args.append and os.path.exists(args.output):
-        with open(args.output, "r", encoding="utf-8") as f:
-            existing_data = json.load(f)
-        existing_by_name = {a["name"]: a for a in existing_data.get("animations", [])}
-        overwritten = existing_by_name.keys() & {a["name"] for a in extracted}
-        if overwritten:
-            print(f"Replacing existing clip(s): {sorted(overwritten)}", file=sys.stderr)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for anim in extracted:
-        existing_by_name[anim["name"]] = anim
-
-    combined = list(existing_by_name.values())
-
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump({"animations": combined}, f)
+        file_path = output_dir / f"{sanitize_filename(anim['name'])}.json"
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(anim, f)
 
     total_channels = sum(len(a["channels"]) for a in extracted)
     print(
         f"Extracted {len(extracted)}/{len(keep_names)} requested animations "
-        f"({total_channels} channels total). {args.output} now has "
-        f"{len(combined)} animation(s) total."
+        f"({total_channels} channels total) into {output_dir}/"
     )
 
 

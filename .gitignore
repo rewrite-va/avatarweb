@@ -3,3 +3,10 @@ Thumbs.db
 node_modules/
 *.txt
 __pycache__/
+
+# Extracted animation clip library (tools/extract_animations.py output).
+# Some poses come from purchased asset packs (e.g. GoGoLoco) — the raw
+# keyframe data shouldn't be redistributed via this public repo, even
+# though the baked result in assets/novabeast.glb is fine to ship.
+animations.json
+animations/

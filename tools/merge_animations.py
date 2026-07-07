@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Merge an animations.json (from extract_animations.py) into a visuals glb.
+"""Merge an animations/ directory (from extract_animations.py) into a glb.
 
 Lets you re-export the avatar's mesh/materials from Unity as often as you
 like (a glb with no animations) without having to redo animation work each
-time — this stitches previously-extracted clips back in afterward, matching
-each channel's target by full scene PATH (not bare name — VRCFury exports
-often have duplicate node names via a parallel "menu" preview hierarchy)
-against the new file's skeleton.
+time — this stitches every previously-extracted clip in the given directory
+back in, matching each channel's target by full scene PATH (not bare name —
+VRCFury exports often have duplicate node names via a parallel "menu"
+preview hierarchy) against the new file's skeleton.
 
 Usage:
-    python3 tools/merge_animations.py novabeast_visuals.glb animations.json novabeast.glb
+    python3 tools/merge_animations.py novabeast_visuals.glb animations/ novabeast.glb
 """
 
 import argparse
 import json
 import struct
 import sys
+from pathlib import Path
 
 from glb_common import read_glb, write_glb, build_node_paths, COMPONENT_TYPE_FLOAT
 
@@ -66,14 +67,14 @@ def add_accessor(gltf, buf, values, component_count, gltf_type):
     return accessor_index
 
 
-def merge_animations(gltf, bin_data, animations_data):
+def merge_animations(gltf, bin_data, animations):
     path_to_node_index = build_path_to_node_index(gltf)
     buf = bytearray(bin_data)
 
     merged_animations = list(gltf.get("animations", []))
     skipped_channel_count = 0
 
-    for anim in animations_data["animations"]:
+    for anim in animations:
         channels_out = []
         samplers_out = []
 
@@ -123,19 +124,29 @@ def merge_animations(gltf, bin_data, animations_data):
     return gltf, bytes(buf)
 
 
+def load_animations_dir(dir_path):
+    animations = []
+    for file_path in sorted(Path(dir_path).glob("*.json")):
+        with open(file_path, "r", encoding="utf-8") as f:
+            animations.append(json.load(f))
+    return animations
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("visuals_glb", help="Visuals-only .glb (mesh/materials, no animations needed)")
-    parser.add_argument("animations_json", help="animations.json produced by extract_animations.py")
+    parser.add_argument("animations_dir", help="Directory of <name>.json files produced by extract_animations.py")
     parser.add_argument("output", help="Destination .glb file")
     args = parser.parse_args()
 
     gltf, bin_data = read_glb(args.visuals_glb)
-    with open(args.animations_json, "r", encoding="utf-8") as f:
-        animations_data = json.load(f)
+    animations = load_animations_dir(args.animations_dir)
+
+    if not animations:
+        print(f"Warning: no *.json files found in {args.animations_dir}", file=sys.stderr)
 
     before_count = len(gltf.get("animations", []))
-    gltf, new_bin = merge_animations(gltf, bin_data, animations_data)
+    gltf, new_bin = merge_animations(gltf, bin_data, animations)
 
     write_glb(args.output, gltf, new_bin)
 
