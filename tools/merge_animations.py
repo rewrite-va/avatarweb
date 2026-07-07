@@ -8,6 +8,13 @@ back in, matching each channel's target by full scene PATH (not bare name —
 VRCFury exports often have duplicate node names via a parallel "menu"
 preview hierarchy) against the new file's skeleton.
 
+The input glb's existing animations (if any — e.g. if you point this at an
+already-merged novabeast.glb instead of a fresh visuals-only export) are
+always discarded first: the output's animations are exactly whatever is in
+animations_dir, never a mix of old-file-leftovers plus new. Otherwise
+deleting a pose's json file wouldn't actually remove it if you re-merge
+into a file that already had it baked in from a previous run.
+
 Usage:
     python3 tools/merge_animations.py novabeast_visuals.glb animations/ novabeast.glb
 """
@@ -18,7 +25,7 @@ import struct
 import sys
 from pathlib import Path
 
-from glb_common import read_glb, write_glb, build_node_paths, COMPONENT_TYPE_FLOAT
+from glb_common import read_glb, write_glb, build_node_paths, filter_animations, COMPONENT_TYPE_FLOAT
 
 
 def build_path_to_node_index(gltf):
@@ -68,10 +75,16 @@ def add_accessor(gltf, buf, values, component_count, gltf_type):
 
 
 def merge_animations(gltf, bin_data, animations):
+    # Strip any animations (and their now-orphaned accessors/bufferViews/
+    # bytes) already in the input first, so the result is always exactly
+    # "this file's mesh/skeleton + whatever is in animations_dir" — never a
+    # mix that includes stale clips from a previous merge.
+    gltf, bin_data = filter_animations(gltf, bin_data, set())
+
     path_to_node_index = build_path_to_node_index(gltf)
     buf = bytearray(bin_data)
 
-    merged_animations = list(gltf.get("animations", []))
+    merged_animations = []
     skipped_channel_count = 0
 
     for anim in animations:
@@ -145,13 +158,14 @@ def main():
     if not animations:
         print(f"Warning: no *.json files found in {args.animations_dir}", file=sys.stderr)
 
-    before_count = len(gltf.get("animations", []))
+    existing_count = len(gltf.get("animations", []))
     gltf, new_bin = merge_animations(gltf, bin_data, animations)
 
     write_glb(args.output, gltf, new_bin)
 
-    added = len(gltf["animations"]) - before_count
-    print(f"Merged {added} animation(s). Total animations in output: {len(gltf['animations'])}.")
+    if existing_count:
+        print(f"Discarded {existing_count} animation(s) already in {args.visuals_glb}.")
+    print(f"Output has {len(gltf['animations'])} animation(s), from {args.animations_dir}.")
 
 
 if __name__ == "__main__":

@@ -32,3 +32,11 @@ Turn on UnityGLTF's **Unique Animation Names** export setting. Without it, multi
 ### Node matching uses full scene path, not bare name
 
 `extract_animations.py`/`merge_animations.py` key animation channels by each target node's full scene path (e.g. `Novabeast_lilToon/clothing/shirt`), not bare name or index. VRCFury's export adds a parallel "menu" preview hierarchy that reuses names like `shirt`/`skeleton`/`clothing` from the real mesh/skeleton tree — bare-name matching silently attaches channels to the wrong node about a third of the time on this rig.
+
+### merge_animations.py always discards the input's existing animations first
+
+If you merge into an already-merged `assets/novabeast.glb` (instead of a fresh visuals-only export), the script strips whatever animations are already baked in before appending the current `animations/` set — otherwise deleting a pose's json file wouldn't actually remove it from the output (it'd survive as a leftover from the previous merge). The output's animation list is always exactly "whatever's in `animations/` right now," never a mix of old-plus-new.
+
+### Hair physics bones can't survive a merge into a re-export
+
+VRCFury auto-generates per-export proxy/constraint bones for hair physics with names like `[VF523] Aidenfur Zinika hair` — the numeric ID is reassigned on every export, so these bone paths never match between two separately-exported glbs. Merging extracted animation data into a freshly re-exported visuals glb will therefore silently drop the hair-bone channels of each clip (expect a "N channel(s) skipped" warning) while the actual body pose (skeleton bones like `hips`/`spine`/`upperarm_l`, which have stable names) merges correctly. This is accepted behavior, not a bug to chase — hair just stays in its normal skinned position instead of following pose-specific hair keyframes.
