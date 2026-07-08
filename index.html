@@ -6,25 +6,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      /* Grounded in the avatar's own palette (coolors.co/232323-373534-
-         c2bbb8-5c1a88-ed2793-ffcc3d) rather than a generic dark-UI grey, so
-         the chrome feels like it belongs to the same object as the model. */
-      --bg: #1a1a1d;
+      /* Neutral dark UI — the avatar's own palette is reserved for the
+         palette panel itself (that's the one place it should show up),
+         not spread across the general chrome. */
+      --bg: #1a1a1e;
       --surface: #242226;
-      --surface-border: rgba(237, 39, 147, 0.14);
-      --text: #e8e6ea;
-      --text-muted: #948f97;
-      --text-faint: #6f6a72;
-      --accent: #ed2793;
-      --accent-strong: #ff4ba8;
-      --accent-ink: #2a0e1c;
-      --gold: #ffcc3d;
-      --danger: #e0637d;
-      --ok: #5fc98a;
-      --radius-lg: 16px;
-      --radius-md: 10px;
-      --radius-sm: 7px;
+      --surface-border: #3a383e;
+      --text: #ddd;
+      --text-muted: #999;
+      --text-faint: #777;
+      --accent: #5b8cff;
+      --accent-strong: #7aa2ff;
+      --danger: #e08080;
+      --ok: #6bcf7a;
+      --radius-lg: 14px;
+      --radius-md: 8px;
+      --radius-sm: 8px;
       --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.35);
+
+      /* One type scale used everywhere, instead of every panel picking its
+         own font-size — that's what made the HUD/controls/curate/palette
+         panels feel like unrelated UIs stitched together. */
+      --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+      --text-lg: 1rem;       /* HUD items, pose select, primary row labels */
+      --text-base: 0.875rem; /* buttons, body copy */
+      --text-sm: 0.75rem;    /* section eyebrows, hints, list rows */
+      --text-xs: 0.6875rem;  /* swatch hex/name, fine print */
     }
     html, body {
       margin: 0;
@@ -35,6 +42,7 @@
       overflow: hidden;
       font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
       color: var(--text);
+      font-size: var(--text-base);
     }
     #viewer-canvas {
       display: block;
@@ -47,7 +55,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: var(--text-muted);
-      font-size: 1.1rem;
+      font-size: var(--text-lg);
     }
     #hud {
       position: absolute;
@@ -60,7 +68,7 @@
       border: 1px solid var(--surface-border);
       padding: 16px 26px;
       border-radius: var(--radius-lg);
-      font-size: 1.1rem;
+      font-size: var(--text-lg);
       line-height: 1.4;
       pointer-events: none;
       box-shadow: var(--shadow-panel);
@@ -91,9 +99,30 @@
       border: 1px solid var(--surface-border);
       padding: 18px 22px;
       border-radius: var(--radius-lg);
-      font-size: 1.05rem;
+      font-size: var(--text-lg);
       box-shadow: var(--shadow-panel);
-      min-width: 200px;
+      min-width: 220px;
+    }
+    /* Shared "eyebrow" label style — section headings, field labels, hints
+       all use this one pattern instead of three near-identical variants. */
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    /* Primary label for a control row (the row's "name") — same size/weight
+       as the interactive text next to it (Clothing, Show color palette),
+       so every section entry point reads at one consistent level instead
+       of "Pose" looking like a smaller/quieter category caption. */
+    .section-label {
+      display: block;
+      margin: 0 0 8px;
+      font-size: var(--text-lg);
+      font-weight: 500;
+      color: var(--text);
     }
     .toggle-row {
       display: flex;
@@ -102,6 +131,8 @@
       cursor: pointer;
       user-select: none;
       color: var(--text);
+      font-size: var(--text-lg);
+      font-weight: 500;
     }
     .toggle-switch {
       position: relative;
@@ -135,22 +166,24 @@
     }
     #pose-row {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #pose-row .pose-actions {
+      display: flex;
       gap: 10px;
-      margin-top: 16px;
       flex-wrap: wrap;
     }
-    #pose-row label {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
     #pose-select {
+      width: 100%;
+      box-sizing: border-box;
       background: #1c1a1e;
       color: var(--text);
       border: 1px solid #423e45;
       border-radius: var(--radius-sm);
-      padding: 7px 10px;
-      font-size: 0.95rem;
+      padding: 8px 10px;
+      font-size: var(--text-lg);
       font-family: inherit;
     }
     #pose-row.hidden {
@@ -161,8 +194,8 @@
       color: var(--text);
       border: 1px solid #4a454d;
       border-radius: var(--radius-sm);
-      padding: 7px 14px;
-      font-size: 0.88rem;
+      padding: 8px 14px;
+      font-size: var(--text-base);
       font-family: inherit;
       font-weight: 500;
       cursor: pointer;
@@ -196,14 +229,6 @@
       padding-top: 16px;
       border-top: 1px solid var(--surface-border);
     }
-    #curate-panel h3 {
-      margin: 0 0 10px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
     #curate-panel h3 span {
       color: var(--text);
       font-weight: 700;
@@ -211,7 +236,7 @@
     #kept-list {
       max-height: 160px;
       overflow-y: auto;
-      font-size: 0.85rem;
+      font-size: var(--text-sm);
       margin-bottom: 10px;
     }
     #kept-list div {
@@ -226,7 +251,7 @@
       border: none;
       color: var(--danger);
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: var(--text-sm);
       padding: 0 4px;
     }
     #curate-panel textarea {
@@ -237,8 +262,8 @@
       border: 1px solid #423e45;
       border-radius: var(--radius-sm);
       padding: 8px;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
       height: 80px;
       resize: vertical;
       margin-bottom: 10px;
@@ -274,7 +299,7 @@
       color: var(--text);
       padding: 0;
       font-family: inherit;
-      font-size: 1.05rem;
+      font-size: var(--text-lg);
       font-weight: 500;
       cursor: pointer;
       text-align: left;
@@ -321,13 +346,13 @@
     }
     #palette-panel .hint {
       margin: 0 0 14px;
-      font-size: 0.78rem;
+      font-size: var(--text-sm);
       color: var(--text-faint);
     }
     #palette-swatches {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px 16px;
     }
     .swatch {
       display: flex;
@@ -357,13 +382,13 @@
       outline-offset: 2px;
     }
     .swatch-hex {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
       color: var(--text-muted);
       font-variant-numeric: tabular-nums;
     }
     .swatch-name {
-      font-size: 0.68rem;
+      font-size: var(--text-xs);
       color: var(--text-faint);
     }
     .swatch.copied .swatch-hex {
@@ -384,13 +409,15 @@
 
     <section class="panel-section" id="pose-section">
       <div id="pose-row" class="hidden">
-        <label for="pose-select">Pose</label>
+        <label for="pose-select" class="section-label">Pose</label>
         <select id="pose-select"></select>
-        <button id="keep-pose-btn" class="btn btn-primary hidden">Keep &amp; next</button>
-        <button id="discard-pose-btn" class="btn hidden">Discard &amp; next</button>
+        <div class="pose-actions">
+          <button id="keep-pose-btn" class="btn btn-primary hidden">Keep &amp; next</button>
+          <button id="discard-pose-btn" class="btn hidden">Discard &amp; next</button>
+        </div>
       </div>
       <div id="curate-panel" class="hidden">
-        <h3>Kept poses (<span id="kept-count">0</span>)</h3>
+        <h3 class="eyebrow">Kept poses (<span id="kept-count">0</span>)</h3>
         <div id="kept-list"></div>
         <textarea id="kept-output" readonly></textarea>
         <button id="copy-kept-btn" class="btn">Copy to clipboard</button>

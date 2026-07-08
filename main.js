@@ -285,11 +285,11 @@ function addOutlines(root, avatarHeight) {
 // hex values on hand, rather than eyeballing colors off the rendered model.
 const COLOR_PALETTE = [
   { hex: '#ED2793', name: 'Magenta' },
-  { hex: '#5C1A88', name: 'Morado' },
-  { hex: '#373534', name: 'Gris base' },
-  { hex: '#C2BBB8', name: 'Gris claro' },
-  { hex: '#232323', name: 'Gris oscuro' },
-  { hex: '#FFCC3D', name: 'Dorado' },
+  { hex: '#5C1A88', name: 'Purple' },
+  { hex: '#373534', name: 'Base Gray' },
+  { hex: '#C2BBB8', name: 'Light Gray' },
+  { hex: '#232323', name: 'Dark Gray' },
+  { hex: '#FFCC3D', name: 'Gold' },
 ];
 
 function setupColorPalette() {
