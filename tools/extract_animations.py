@@ -24,8 +24,8 @@ alone aren't reliably unique in these exports: VRCFury adds a parallel
 real mesh/skeleton tree, so the full ancestor path is what disambiguates.
 
 Usage:
-    python3 tools/extract_animations.py novabeast.glb animations/ --keep "Idle" "Sitting"
-    python3 tools/extract_animations.py novabeast.glb animations/ --keep-file poses.txt
+    python3 tools/extract_animations.py rewrite.glb animations/ --keep "Idle" "Sitting"
+    python3 tools/extract_animations.py rewrite.glb animations/ --keep-file poses.txt
 
     # Re-extracting a name just overwrites that one file; every other pose
     # already in animations/ is untouched:

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const MODEL_URL = './assets/novabeast.glb';
+const MODEL_URL = './assets/rewrite.glb';
 
 const canvas = document.getElementById('viewer-canvas');
 const loadingEl = document.getElementById('loading');

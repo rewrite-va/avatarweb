@@ -9,14 +9,14 @@ VRCFury exports often have duplicate node names via a parallel "menu"
 preview hierarchy) against the new file's skeleton.
 
 The input glb's existing animations (if any — e.g. if you point this at an
-already-merged novabeast.glb instead of a fresh visuals-only export) are
+already-merged rewrite.glb instead of a fresh visuals-only export) are
 always discarded first: the output's animations are exactly whatever is in
 animations_dir, never a mix of old-file-leftovers plus new. Otherwise
 deleting a pose's json file wouldn't actually remove it if you re-merge
 into a file that already had it baked in from a previous run.
 
 Usage:
-    python3 tools/merge_animations.py novabeast_visuals.glb animations/ novabeast.glb
+    python3 tools/merge_animations.py rewrite_visuals.glb animations/ rewrite.glb
 """
 
 import argparse

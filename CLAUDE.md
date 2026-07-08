@@ -1,12 +1,12 @@
 # avatarweb
 
-Three.js viewer for a VRChat avatar (Novabeast), exported from Unity via UnityGLTF to `assets/novabeast.glb`. Static site — `index.html` + `main.js`, no build step, deploys to GitHub Pages via `.github/workflows/deploy.yml` (Git LFS-tracked glb, resolved during the Pages build).
+Three.js viewer for a VRChat avatar (Novabeast), exported from Unity via UnityGLTF to `assets/rewrite.glb`. Static site — `index.html` + `main.js`, no build step, deploys to GitHub Pages via `.github/workflows/deploy.yml` (Git LFS-tracked glb, resolved during the Pages build).
 
 ## Never commit the animation clip library
 
 `animations/*.json` and `animations.json` (output of `tools/extract_animations.py`) must **never** be committed or pushed. Some of the poses in this library come from purchased asset packs (e.g. GoGoLoco), and the raw extracted keyframe data is effectively redistributing that paid content. Both are gitignored — keep it that way.
 
-This does **not** apply to `assets/novabeast.glb` itself: baked keyframe data inside the shipped glb (the compiled/final asset the site actually loads) is fine to publish, same as any other baked avatar animation. The line is: standalone extractable pose data = private; baked-into-the-final-model data = public.
+This does **not** apply to `assets/rewrite.glb` itself: baked keyframe data inside the shipped glb (the compiled/final asset the site actually loads) is fine to publish, same as any other baked avatar animation. The line is: standalone extractable pose data = private; baked-into-the-final-model data = public.
 
 ## Animation pose workflow
 
@@ -15,11 +15,11 @@ Poses are decoupled from visual re-exports so iterating on the avatar's mesh/mat
 1. Export a glb from Unity with your poses baked in (Animator's controller must have each pose as a plain top-level state — see below).
 2. Curate which clips are worth keeping: `./dev.sh` then visit `index.html?curate=1` — plays each clip live on the avatar with **Keep & next** / **Discard & next** buttons, builds a list you copy out.
 3. Paste that list into `poses.txt` (gitignored).
-4. Extract: `python3 tools/extract_animations.py assets/novabeast.glb animations/ --keep-file poses.txt` — writes one `animations/<name>.json` per clip. Re-running only touches the files for the names you pass; delete a pose you no longer want with `rm animations/<name>.json`.
+4. Extract: `python3 tools/extract_animations.py assets/rewrite.glb animations/ --keep-file poses.txt` — writes one `animations/<name>.json` per clip. Re-running only touches the files for the names you pass; delete a pose you no longer want with `rm animations/<name>.json`.
 5. Iterate on visuals in Unity, re-export (animations don't matter in this export).
-6. Merge poses back in: `python3 tools/merge_animations.py <new_visuals_glb> animations/ assets/novabeast.glb`.
+6. Merge poses back in: `python3 tools/merge_animations.py <new_visuals_glb> animations/ assets/rewrite.glb`.
 
-Also available: `tools/filter_animations.py` strips a glb down to only named animations in place (no JSON intermediate) — useful for shrinking the live `assets/novabeast.glb` to just the poses you're shipping.
+Also available: `tools/filter_animations.py` strips a glb down to only named animations in place (no JSON intermediate) — useful for shrinking the live `assets/rewrite.glb` to just the poses you're shipping.
 
 ### Why UnityGLTF only exports some clips
 
@@ -35,7 +35,7 @@ Turn on UnityGLTF's **Unique Animation Names** export setting. Without it, multi
 
 ### merge_animations.py always discards the input's existing animations first
 
-If you merge into an already-merged `assets/novabeast.glb` (instead of a fresh visuals-only export), the script strips whatever animations are already baked in before appending the current `animations/` set — otherwise deleting a pose's json file wouldn't actually remove it from the output (it'd survive as a leftover from the previous merge). The output's animation list is always exactly "whatever's in `animations/` right now," never a mix of old-plus-new.
+If you merge into an already-merged `assets/rewrite.glb` (instead of a fresh visuals-only export), the script strips whatever animations are already baked in before appending the current `animations/` set — otherwise deleting a pose's json file wouldn't actually remove it from the output (it'd survive as a leftover from the previous merge). The output's animation list is always exactly "whatever's in `animations/` right now," never a mix of old-plus-new.
 
 ### Hair physics bones can't survive a merge into a re-export
 
