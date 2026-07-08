@@ -197,6 +197,38 @@
       font-size: var(--text-lg);
       font-family: inherit;
     }
+    .segmented {
+      display: flex;
+      background: #1c1a1e;
+      border: 1px solid #423e45;
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      gap: 3px;
+    }
+    .segmented-option {
+      flex: 1;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      border-radius: calc(var(--radius-sm) - 3px);
+      padding: 7px 10px;
+      font-size: var(--text-base);
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .segmented-option:hover {
+      color: var(--text);
+    }
+    .segmented-option[aria-checked="true"] {
+      background: var(--accent);
+      color: #fff;
+    }
+    .segmented-option:focus-visible {
+      outline: 2px solid var(--accent-strong);
+      outline-offset: 2px;
+    }
     #pose-row.hidden {
       display: none;
     }
@@ -420,10 +452,19 @@
   <div id="loading">Loading avatar…</div>
   <div id="controls-panel">
     <section class="panel-section">
+      <span class="section-label">Camera</span>
+      <div id="camera-select" class="segmented" role="radiogroup" aria-label="Camera projection">
+        <button type="button" class="segmented-option" data-value="perspective" role="radio" aria-checked="true">Perspective</button>
+        <button type="button" class="segmented-option" data-value="orthographic" role="radio" aria-checked="false">Orthographic</button>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <span class="section-label">Clothing</span>
       <label class="toggle-row">
         <input type="checkbox" id="clothing-toggle" />
         <span class="toggle-switch"></span>
-        Clothing
+        Shirt
       </label>
     </section>
 

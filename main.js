@@ -11,13 +11,34 @@ const loadingEl = document.getElementById('loading');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a1e);
 
-const camera = new THREE.PerspectiveCamera(
-  40,
+const PERSPECTIVE_FOV = 40;
+
+const perspectiveCamera = new THREE.PerspectiveCamera(
+  PERSPECTIVE_FOV,
   window.innerWidth / window.innerHeight,
   0.01,
   100
 );
-camera.position.set(0, 1.4, 3.2);
+perspectiveCamera.position.set(0, 1.4, 3.2);
+
+// Orthographic frustum half-height in world units; kept in sync with the
+// perspective camera's distance (see syncOrthographicFrustum) so switching
+// projections doesn't jump the framing — only the projection style changes.
+const orthographicCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+orthographicCamera.position.copy(perspectiveCamera.position);
+
+let camera = perspectiveCamera;
+
+function syncOrthographicFrustum() {
+  const distance = perspectiveCamera.position.distanceTo(controls.target);
+  const halfHeight = distance * Math.tan(THREE.MathUtils.degToRad(PERSPECTIVE_FOV / 2));
+  const aspect = window.innerWidth / window.innerHeight;
+  orthographicCamera.left = -halfHeight * aspect;
+  orthographicCamera.right = halfHeight * aspect;
+  orthographicCamera.top = halfHeight;
+  orthographicCamera.bottom = -halfHeight;
+  orthographicCamera.updateProjectionMatrix();
+}
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -96,6 +117,29 @@ controls.target.set(0, 1.0, 0);
 controls.minDistance = 0.3;
 controls.maxDistance = 10;
 controls.update();
+
+syncOrthographicFrustum();
+
+const cameraSelect = document.getElementById('camera-select');
+const cameraOptionButtons = cameraSelect.querySelectorAll('.segmented-option');
+cameraOptionButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    if (button.getAttribute('aria-checked') === 'true') return;
+    cameraOptionButtons.forEach((b) => b.setAttribute('aria-checked', String(b === button)));
+
+    if (button.dataset.value === 'orthographic') {
+      orthographicCamera.position.copy(perspectiveCamera.position);
+      orthographicCamera.zoom = 1;
+      syncOrthographicFrustum();
+      camera = orthographicCamera;
+    } else {
+      perspectiveCamera.position.copy(orthographicCamera.position);
+      camera = perspectiveCamera;
+    }
+    controls.object = camera;
+    controls.update();
+  });
+});
 
 const grid = new THREE.GridHelper(6, 24, 0x444444, 0x2a2a2a);
 scene.add(grid);
@@ -565,7 +609,9 @@ loader.load(
     scene.add(model);
 
     controls.target.set(0, height * 0.55, 0);
-    camera.position.set(0, height * 0.6, height * 1.8);
+    perspectiveCamera.position.set(0, height * 0.6, height * 1.8);
+    orthographicCamera.position.copy(perspectiveCamera.position);
+    syncOrthographicFrustum();
     controls.update();
 
     if (gltf.animations && gltf.animations.length) {
@@ -588,8 +634,9 @@ loader.load(
 );
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+  perspectiveCamera.updateProjectionMatrix();
+  syncOrthographicFrustum();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 

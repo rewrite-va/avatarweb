@@ -2,6 +2,16 @@
 
 Three.js viewer for a VRChat avatar (Novabeast), exported from Unity via UnityGLTF to `assets/rewrite.glb`. Static site — `index.html` + `main.js`, no build step, deploys to GitHub Pages via `.github/workflows/deploy.yml` (Git LFS-tracked glb, resolved during the Pages build).
 
+## Testing changes in a browser
+
+Serve the site with `./dev.sh [port]`, then drive it with Playwright from the scratchpad directory (no project-local `node_modules` here, so install fresh each session):
+
+```
+npm init -y && npm install playwright && npx playwright install chromium
+```
+
+Then `require('playwright')` from a script in that same scratchpad dir. Launch **headed**, not headless (`chromium.launch({ headless: false })`) — the user wants to see the test running in a real window, not just get a screenshot back.
+
 ## Never commit the animation clip library
 
 `animations/*.json` and `animations.json` (output of `tools/extract_animations.py`) must **never** be committed or pushed. Some of the poses in this library come from purchased asset packs (e.g. GoGoLoco), and the raw extracted keyframe data is effectively redistributing that paid content. Both are gitignored — keep it that way.
