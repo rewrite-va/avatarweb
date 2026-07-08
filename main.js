@@ -577,7 +577,7 @@ loader.load(
   },
   (progress) => {
     if (progress.total) {
-      const pct = Math.round((progress.loaded / progress.total) * 100);
+      const pct = Math.min(100, Math.round((progress.loaded / progress.total) * 100));
       loadingEl.textContent = `Loading avatar… ${pct}%`;
     }
   },
