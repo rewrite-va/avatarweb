@@ -280,6 +280,69 @@ function addOutlines(root, avatarHeight) {
   return outlineMeshes;
 }
 
+// Official color palette (source: coolors.co/232323-373534-c2bbb8-5c1a88-ed2793-ffcc3d)
+// shown so artists using this viewer as reference material have the exact
+// hex values on hand, rather than eyeballing colors off the rendered model.
+const COLOR_PALETTE = [
+  { hex: '#ED2793', name: 'Magenta' },
+  { hex: '#5C1A88', name: 'Morado' },
+  { hex: '#373534', name: 'Gris base' },
+  { hex: '#C2BBB8', name: 'Gris claro' },
+  { hex: '#232323', name: 'Gris oscuro' },
+  { hex: '#FFCC3D', name: 'Dorado' },
+];
+
+function setupColorPalette() {
+  const toggleBtn = document.getElementById('palette-toggle-btn');
+  const toggleLabel = document.getElementById('palette-toggle-label');
+  const panelEl = document.getElementById('palette-panel');
+  const swatchesEl = document.getElementById('palette-swatches');
+  if (!toggleBtn || !toggleLabel || !panelEl || !swatchesEl) return;
+
+  COLOR_PALETTE.forEach(({ hex, name }) => {
+    const swatch = document.createElement('button');
+    swatch.className = 'swatch';
+    swatch.title = `Copy ${hex}`;
+
+    const colorBox = document.createElement('div');
+    colorBox.className = 'swatch-color';
+    colorBox.style.background = hex;
+
+    const hexLabel = document.createElement('div');
+    hexLabel.className = 'swatch-hex';
+    hexLabel.textContent = hex;
+
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'swatch-name';
+    nameLabel.textContent = name;
+
+    swatch.appendChild(colorBox);
+    swatch.appendChild(hexLabel);
+    swatch.appendChild(nameLabel);
+
+    swatch.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(hex);
+      swatch.classList.add('copied');
+      const originalText = hexLabel.textContent;
+      hexLabel.textContent = 'Copied!';
+      setTimeout(() => {
+        swatch.classList.remove('copied');
+        hexLabel.textContent = originalText;
+      }, 1000);
+    });
+
+    swatchesEl.appendChild(swatch);
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    const isOpen = toggleBtn.getAttribute('aria-expanded') === 'true';
+    const next = !isOpen;
+    toggleBtn.setAttribute('aria-expanded', String(next));
+    panelEl.classList.toggle('hidden', !next);
+    toggleLabel.textContent = next ? 'Hide color palette' : 'Show color palette';
+  });
+}
+
 // The shirt is a separate mesh node (not part of Body) and hiding the chest
 // fluff underneath it is a blend shape on Body, not a visibility toggle —
 // same mechanism Unity uses (hideChestfluff dialed to 100% when the shirt is
@@ -465,6 +528,8 @@ function setupPoseSelector(mixer, clips) {
     playPose(0);
   }
 }
+
+setupColorPalette();
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://unpkg.com/three@0.165.0/examples/jsm/libs/draco/');

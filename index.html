@@ -5,14 +5,36 @@
   <title>Rewrite Avatar Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    :root {
+      /* Grounded in the avatar's own palette (coolors.co/232323-373534-
+         c2bbb8-5c1a88-ed2793-ffcc3d) rather than a generic dark-UI grey, so
+         the chrome feels like it belongs to the same object as the model. */
+      --bg: #1a1a1d;
+      --surface: #242226;
+      --surface-border: rgba(237, 39, 147, 0.14);
+      --text: #e8e6ea;
+      --text-muted: #948f97;
+      --text-faint: #6f6a72;
+      --accent: #ed2793;
+      --accent-strong: #ff4ba8;
+      --accent-ink: #2a0e1c;
+      --gold: #ffcc3d;
+      --danger: #e0637d;
+      --ok: #5fc98a;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 7px;
+      --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
-      background: #1a1a1e;
+      background: var(--bg);
       overflow: hidden;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
     }
     #viewer-canvas {
       display: block;
@@ -24,7 +46,7 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      color: #ccc;
+      color: var(--text-muted);
       font-size: 1.1rem;
     }
     #hud {
@@ -33,25 +55,28 @@
       left: 20px;
       display: flex;
       gap: 26px;
-      color: #ddd;
-      background: rgba(0,0,0,0.45);
+      background: rgba(20, 18, 21, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--surface-border);
       padding: 16px 26px;
-      border-radius: 14px;
-      font-size: 1.15rem;
+      border-radius: var(--radius-lg);
+      font-size: 1.1rem;
       line-height: 1.4;
       pointer-events: none;
+      box-shadow: var(--shadow-panel);
     }
     .hud-item {
       display: flex;
       align-items: center;
       gap: 10px;
       white-space: nowrap;
+      color: var(--text-muted);
     }
     .hud-item svg {
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       flex-shrink: 0;
-      stroke: #ddd;
+      stroke: var(--text-muted);
       fill: none;
       stroke-width: 1.6;
       stroke-linecap: round;
@@ -61,11 +86,14 @@
       position: absolute;
       top: 20px;
       right: 20px;
-      color: #ddd;
-      background: rgba(0,0,0,0.45);
-      padding: 16px 22px;
-      border-radius: 14px;
-      font-size: 1.15rem;
+      background: rgba(20, 18, 21, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--surface-border);
+      padding: 18px 22px;
+      border-radius: var(--radius-lg);
+      font-size: 1.05rem;
+      box-shadow: var(--shadow-panel);
+      min-width: 200px;
     }
     .toggle-row {
       display: flex;
@@ -73,14 +101,15 @@
       gap: 12px;
       cursor: pointer;
       user-select: none;
+      color: var(--text);
     }
     .toggle-switch {
       position: relative;
-      width: 46px;
-      height: 26px;
+      width: 42px;
+      height: 24px;
       flex-shrink: 0;
-      background: #555;
-      border-radius: 13px;
+      background: #3a373d;
+      border-radius: 12px;
       transition: background 0.15s ease;
     }
     .toggle-switch::after {
@@ -88,9 +117,9 @@
       position: absolute;
       top: 3px;
       left: 3px;
-      width: 20px;
-      height: 20px;
-      background: #eee;
+      width: 18px;
+      height: 18px;
+      background: var(--text);
       border-radius: 50%;
       transition: left 0.15s ease;
     }
@@ -98,78 +127,104 @@
       display: none;
     }
     .toggle-row input:checked + .toggle-switch {
-      background: #3a9a5c;
+      background: var(--accent);
     }
     .toggle-row input:checked + .toggle-switch::after {
-      left: 23px;
+      left: 21px;
+      background: #fff;
     }
     #pose-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-top: 14px;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    #pose-row label {
+      color: var(--text-muted);
+      font-size: 0.9rem;
     }
     #pose-select {
-      background: #2a2a2e;
-      color: #ddd;
-      border: 1px solid #555;
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 1rem;
+      background: #1c1a1e;
+      color: var(--text);
+      border: 1px solid #423e45;
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 0.95rem;
       font-family: inherit;
     }
     #pose-row.hidden {
       display: none;
     }
-    #keep-pose-btn {
-      background: #2a2a2e;
-      color: #ddd;
-      border: 1px solid #555;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.9rem;
+    .btn {
+      background: #322f34;
+      color: var(--text);
+      border: 1px solid #4a454d;
+      border-radius: var(--radius-sm);
+      padding: 7px 14px;
+      font-size: 0.88rem;
       font-family: inherit;
+      font-weight: 500;
       cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
     }
-    #keep-pose-btn {
-      background: #2f6b40;
-      border-color: #3a9a5c;
+    .btn:hover {
+      background: #3c383f;
+      border-color: #59535c;
     }
-    #keep-pose-btn:hover {
-      background: #368049;
+    .btn:active {
+      transform: translateY(1px);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--accent-strong);
+      border-color: var(--accent-strong);
     }
     #discard-pose-btn:hover {
-      background: #3a2e2e;
+      background: #453238;
+      border-color: var(--danger);
     }
     #keep-pose-btn.hidden, #discard-pose-btn.hidden, #curate-panel.hidden {
       display: none;
     }
     #curate-panel {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid #444;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--surface-border);
     }
     #curate-panel h3 {
-      margin: 0 0 8px;
-      font-size: 0.95rem;
+      margin: 0 0 10px;
+      font-size: 0.8rem;
       font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #curate-panel h3 span {
+      color: var(--text);
+      font-weight: 700;
     }
     #kept-list {
       max-height: 160px;
       overflow-y: auto;
       font-size: 0.85rem;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     #kept-list div {
       display: flex;
       justify-content: space-between;
       gap: 8px;
-      padding: 3px 0;
+      padding: 4px 0;
+      color: var(--text-muted);
     }
     #kept-list button {
       background: none;
       border: none;
-      color: #e08080;
+      color: var(--danger);
       cursor: pointer;
       font-size: 0.85rem;
       padding: 0 4px;
@@ -177,39 +232,188 @@
     #curate-panel textarea {
       width: 100%;
       box-sizing: border-box;
-      background: #111113;
-      color: #ddd;
-      border: 1px solid #444;
-      border-radius: 8px;
+      background: #1c1a1e;
+      color: var(--text);
+      border: 1px solid #423e45;
+      border-radius: var(--radius-sm);
       padding: 8px;
-      font-family: ui-monospace, monospace;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.8rem;
       height: 80px;
       resize: vertical;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    /* controls-panel is split into three stacked sections (toggles / pose /
+       palette), each separated by a hairline rather than living in three
+       separate floating panels — one place to look for every control. */
+    .panel-section {
+      padding: 16px 0;
+    }
+    .panel-section:first-child {
+      padding-top: 0;
+    }
+    .panel-section:last-child {
+      padding-bottom: 0;
+    }
+    .panel-section + .panel-section {
+      border-top: 1px solid var(--surface-border);
+    }
+    #pose-section:has(#pose-row.hidden) {
+      display: none;
+    }
+
+    #palette-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      background: none;
+      border: none;
+      color: var(--text);
+      padding: 0;
+      font-family: inherit;
+      font-size: 1.05rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+    }
+    #palette-toggle-btn:hover .chip-stack {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+    #palette-toggle-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: var(--radius-sm);
+    }
+    #palette-toggle-btn .chip-stack {
+      display: flex;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+      transition: box-shadow 0.15s ease;
+    }
+    #palette-toggle-btn .chip-stack span {
+      flex: 1;
+      height: 100%;
+    }
+    #palette-toggle-label {
+      flex: 1;
+    }
+    #palette-chevron {
+      color: var(--text-faint);
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    #palette-toggle-btn[aria-expanded="true"] #palette-chevron {
+      transform: rotate(180deg);
+      color: var(--accent);
+    }
+    #palette-panel {
+      margin-top: 16px;
+    }
+    #palette-panel.hidden {
+      display: none;
+    }
+    #palette-panel .hint {
+      margin: 0 0 14px;
+      font-size: 0.78rem;
+      color: var(--text-faint);
+    }
+    #palette-swatches {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .swatch {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      color: inherit;
+    }
+    .swatch-color {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .swatch:hover .swatch-color {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    .swatch:focus-visible .swatch-color {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .swatch-hex {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .swatch-name {
+      font-size: 0.68rem;
+      color: var(--text-faint);
+    }
+    .swatch.copied .swatch-hex {
+      color: var(--ok);
     }
   </style>
 </head>
 <body>
   <div id="loading">Loading avatar…</div>
   <div id="controls-panel">
-    <label class="toggle-row">
-      <input type="checkbox" id="clothing-toggle" />
-      <span class="toggle-switch"></span>
-      Clothing
-    </label>
-    <div id="pose-row" class="hidden">
-      <label for="pose-select">Pose</label>
-      <select id="pose-select"></select>
-      <button id="keep-pose-btn" class="hidden">Keep &amp; next</button>
-      <button id="discard-pose-btn" class="hidden">Discard &amp; next</button>
-    </div>
-    <div id="curate-panel" class="hidden">
-      <h3>Kept poses (<span id="kept-count">0</span>)</h3>
-      <div id="kept-list"></div>
-      <textarea id="kept-output" readonly></textarea>
-      <button id="copy-kept-btn">Copy to clipboard</button>
-    </div>
+    <section class="panel-section">
+      <label class="toggle-row">
+        <input type="checkbox" id="clothing-toggle" />
+        <span class="toggle-switch"></span>
+        Clothing
+      </label>
+    </section>
+
+    <section class="panel-section" id="pose-section">
+      <div id="pose-row" class="hidden">
+        <label for="pose-select">Pose</label>
+        <select id="pose-select"></select>
+        <button id="keep-pose-btn" class="btn btn-primary hidden">Keep &amp; next</button>
+        <button id="discard-pose-btn" class="btn hidden">Discard &amp; next</button>
+      </div>
+      <div id="curate-panel" class="hidden">
+        <h3>Kept poses (<span id="kept-count">0</span>)</h3>
+        <div id="kept-list"></div>
+        <textarea id="kept-output" readonly></textarea>
+        <button id="copy-kept-btn" class="btn">Copy to clipboard</button>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <button id="palette-toggle-btn" type="button" aria-expanded="false" aria-controls="palette-panel">
+        <span class="chip-stack" aria-hidden="true">
+          <span style="background:#ED2793"></span>
+          <span style="background:#5C1A88"></span>
+          <span style="background:#FFCC3D"></span>
+        </span>
+        <span id="palette-toggle-label">Show color palette</span>
+        <svg id="palette-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <div id="palette-panel" class="hidden">
+        <p class="hint">Click a swatch to copy its hex code</p>
+        <div id="palette-swatches"></div>
+      </div>
+    </section>
   </div>
   <div id="hud">
     <span class="hud-item">
