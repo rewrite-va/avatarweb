@@ -316,9 +316,13 @@ function setupColorPalette() {
     nameLabel.className = 'swatch-name';
     nameLabel.textContent = name;
 
+    const labelGroup = document.createElement('div');
+    labelGroup.className = 'swatch-label';
+    labelGroup.appendChild(hexLabel);
+    labelGroup.appendChild(nameLabel);
+
     swatch.appendChild(colorBox);
-    swatch.appendChild(hexLabel);
-    swatch.appendChild(nameLabel);
+    swatch.appendChild(labelGroup);
 
     swatch.addEventListener('click', async () => {
       await navigator.clipboard.writeText(hex);
